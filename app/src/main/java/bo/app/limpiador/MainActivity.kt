@@ -33,14 +33,16 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import bo.app.limpiador.ui.AppsViewModel
 import bo.app.limpiador.ui.CleanUpViewModel
 import bo.app.limpiador.ui.StaleFilter
 import bo.app.limpiador.ui.UiEvent
+import bo.app.limpiador.ui.screens.AppsScreen
 import bo.app.limpiador.ui.screens.DashboardScreen
 import bo.app.limpiador.ui.screens.DuplicateCleanerScreen
 import bo.app.limpiador.ui.screens.StaleFilesScreen
 
-private enum class Screen { Dashboard, Duplicates, Stale }
+private enum class Screen { Dashboard, Duplicates, Stale, Apps }
 
 private val Colors = lightColorScheme(
     primary = Color(0xFF1B7F5A),
@@ -89,8 +91,32 @@ private fun openAllFilesSettings(context: Context) {
     }
 }
 
+private fun openUsageAccessSettings(context: Context) {
+    val withPackage = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS, Uri.parse("package:${context.packageName}"))
+    try {
+        context.startActivity(withPackage)
+    } catch (e: ActivityNotFoundException) {
+        runCatching { context.startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS)) }
+    }
+}
+
+private fun openAppSettings(context: Context, pkg: String) {
+    runCatching {
+        context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$pkg")))
+    }
+}
+
+private fun launchApp(context: Context, pkg: String) {
+    context.packageManager.getLaunchIntentForPackage(pkg)?.let { runCatching { context.startActivity(it) } }
+}
+
+@Suppress("DEPRECATION")
+private fun uninstallIntent(pkg: String): Intent =
+    Intent(Intent.ACTION_UNINSTALL_PACKAGE, Uri.parse("package:$pkg"))
+        .putExtra(Intent.EXTRA_RETURN_RESULT, true)
+
 @Composable
-private fun App(vm: CleanUpViewModel = viewModel()) {
+private fun App(vm: CleanUpViewModel = viewModel(), appsVm: AppsViewModel = viewModel()) {
     val context = LocalContext.current
     val snackbar = remember { SnackbarHostState() }
     var screen by remember { mutableStateOf(Screen.Dashboard) }
@@ -106,6 +132,27 @@ private fun App(vm: CleanUpViewModel = viewModel()) {
     val staleFilter by vm.staleFilter.collectAsStateWithLifecycle()
     val staleLoading by vm.staleLoading.collectAsStateWithLifecycle()
     val allFiles by vm.allFilesAccess.collectAsStateWithLifecycle()
+    val apps by appsVm.apps.collectAsStateWithLifecycle()
+    val appsFilter by appsVm.filter.collectAsStateWithLifecycle()
+    val appsLoad by appsVm.load.collectAsStateWithLifecycle()
+    val usageAccess by appsVm.usageAccess.collectAsStateWithLifecycle()
+    val appsSelection by appsVm.selection.collectAsStateWithLifecycle()
+    val appsSummary by appsVm.summary.collectAsStateWithLifecycle()
+
+    // Desinstalación en cadena: el sistema confirma cada app, al volver se lanza la siguiente.
+    var uninstallQueue by remember { mutableStateOf(emptyList<String>()) }
+    val uninstallLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        val rest = uninstallQueue.drop(1)
+        uninstallQueue = rest
+        if (rest.isEmpty()) {
+            appsVm.clearSelection()
+            appsVm.refresh(quiet = true)
+            vm.refreshEnvironment()
+        }
+    }
+    LaunchedEffect(uninstallQueue) {
+        uninstallQueue.firstOrNull()?.let { uninstallLauncher.launch(uninstallIntent(it)) }
+    }
 
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
         hasPermission = result.values.any { it } || hasMediaPermission(context)
@@ -129,6 +176,7 @@ private fun App(vm: CleanUpViewModel = viewModel()) {
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         hasPermission = hasMediaPermission(context)
         vm.refreshEnvironment()
+        appsVm.onResume()
     }
 
     LaunchedEffect(Unit) {
@@ -150,6 +198,7 @@ private fun App(vm: CleanUpViewModel = viewModel()) {
             duplicateGroups = duplicates.size,
             duplicateWaste = duplicates.sumOf { it.wastedBytes },
             staleCount = if (staleFilter == StaleFilter()) staleFiles.size else 0,
+            appsSummary = appsSummary,
             hasMediaPermission = hasPermission || allFiles,
             canRequestDeepAccess = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !allFiles,
             snackbar = snackbar,
@@ -165,6 +214,11 @@ private fun App(vm: CleanUpViewModel = viewModel()) {
             },
             onOpenResidual = {
                 vm.setStaleFilter(StaleFilter(residual = true))
+                screen = Screen.Stale
+            },
+            onOpenApps = { screen = Screen.Apps },
+            onOpenLargest = {
+                vm.setStaleFilter(StaleFilter(days = 0))
                 screen = Screen.Stale
             },
             onOpenCategory = {
@@ -197,6 +251,23 @@ private fun App(vm: CleanUpViewModel = viewModel()) {
             onToggle = vm::toggleStale,
             onSelectAll = vm::selectAllStale,
             onDelete = vm::deleteSelectedStale,
+        )
+
+        Screen.Apps -> AppsScreen(
+            apps = apps,
+            filter = appsFilter,
+            load = appsLoad,
+            usageAccess = usageAccess,
+            selection = appsSelection,
+            onBack = { screen = Screen.Dashboard },
+            onRefresh = { appsVm.refresh() },
+            onFilterChange = appsVm::setFilter,
+            onToggle = appsVm::toggle,
+            onClearSelection = appsVm::clearSelection,
+            onRequestUsageAccess = { openUsageAccessSettings(context) },
+            onUninstall = { if (uninstallQueue.isEmpty()) uninstallQueue = it },
+            onOpenSettings = { openAppSettings(context, it) },
+            onLaunch = { launchApp(context, it) },
         )
     }
 }

@@ -16,8 +16,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
@@ -43,6 +45,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import bo.app.limpiador.data.model.CategoryUsage
 import bo.app.limpiador.data.model.FileCategory
+import bo.app.limpiador.ui.AppsSummary
 import bo.app.limpiador.ui.ScanState
 import bo.app.limpiador.ui.StorageStats
 import bo.app.limpiador.ui.formatBytes
@@ -56,6 +59,7 @@ fun DashboardScreen(
     duplicateGroups: Int,
     duplicateWaste: Long,
     staleCount: Int,
+    appsSummary: AppsSummary?,
     hasMediaPermission: Boolean,
     canRequestDeepAccess: Boolean,
     snackbar: SnackbarHostState,
@@ -67,6 +71,8 @@ fun DashboardScreen(
     onOpenDuplicates: () -> Unit,
     onOpenStale: () -> Unit,
     onOpenResidual: () -> Unit,
+    onOpenApps: () -> Unit,
+    onOpenLargest: () -> Unit,
     onOpenCategory: (FileCategory) -> Unit,
 ) {
     Scaffold(
@@ -97,6 +103,24 @@ fun DashboardScreen(
 
             item {
                 Text("Limpieza", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            }
+            item {
+                ShortcutRow(
+                    icon = Icons.Filled.Build,
+                    title = "Aplicaciones",
+                    subtitle = appsSummary?.let {
+                        "${it.count} apps · ${formatBytes(it.total)} (caché ${formatBytes(it.cache)})"
+                    } ?: "Qué apps ocupan más: instalador, datos y caché",
+                    onClick = onOpenApps,
+                )
+            }
+            item {
+                ShortcutRow(
+                    icon = Icons.Filled.List,
+                    title = "Archivos más grandes",
+                    subtitle = "Todos los archivos ordenados por tamaño",
+                    onClick = onOpenLargest,
+                )
             }
             item {
                 ShortcutRow(
