@@ -33,6 +33,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import bo.app.limpiador.data.model.FileItem
 import bo.app.limpiador.domain.usecase.DuplicateGroup
@@ -93,14 +94,12 @@ fun DuplicateCleanerScreen(
                 }
                 return@Column
             }
-            Row(
+            Column(
                 Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                Column(Modifier.weight(1f)) {
+                Column {
                     Text("${groups.size} grupos", style = MaterialTheme.typography.titleSmall)
                     Text(
                         "${formatBytes(groups.sumOf { it.wastedBytes })} recuperables",
@@ -108,11 +107,13 @@ fun DuplicateCleanerScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                OutlinedButton(onClick = onKeepOldest) { Text("Conservar el más antiguo") }
-            }
-            if (selection.isNotEmpty()) {
-                TextButton(onClick = onClearSelection, modifier = Modifier.padding(start = 8.dp)) {
-                    Text("Quitar selección")
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = onKeepOldest, modifier = Modifier.weight(1f)) {
+                        Text("Conservar el más antiguo", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                    if (selection.isNotEmpty()) {
+                        TextButton(onClick = onClearSelection) { Text("Quitar selección") }
+                    }
                 }
             }
             HorizontalDivider()

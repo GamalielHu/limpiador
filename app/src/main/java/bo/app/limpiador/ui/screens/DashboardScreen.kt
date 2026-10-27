@@ -255,11 +255,17 @@ private fun ScanCard(
                     }
                     Text(subtitle, style = MaterialTheme.typography.bodyMedium)
                     Spacer(Modifier.height(10.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(onClick = onScan, enabled = hasPermission) {
-                            Text(if (state is ScanState.Ready) "Volver a analizar" else "Analizar")
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(onClick = onScan, enabled = hasPermission, modifier = Modifier.weight(1f)) {
+                            Text(
+                                if (state is ScanState.Ready) "Volver a analizar" else "Analizar",
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
                         }
-                        OutlinedButton(onClick = onPickFolder) { Text("Analizar carpeta") }
+                        OutlinedButton(onClick = onPickFolder, modifier = Modifier.weight(1f)) {
+                            Text("Analizar carpeta", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
                     }
                 }
             }
