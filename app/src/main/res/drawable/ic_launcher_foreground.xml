@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Escoba: mango -->
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="5"
+        android:strokeLineCap="round"
+        android:pathData="M68,30L52,56" />
+    <!-- Escoba: cerdas -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M44,52l16,10l-6,16c-8,-1 -16,-6 -20,-12z" />
+    <!-- Brillos -->
+    <path
+        android:fillColor="#C8F2DF"
+        android:pathData="M70,58l2,5l5,2l-5,2l-2,5l-2,-5l-5,-2l5,-2z" />
+    <path
+        android:fillColor="#C8F2DF"
+        android:pathData="M38,36l1.5,3.5l3.5,1.5l-3.5,1.5l-1.5,3.5l-1.5,-3.5l-3.5,-1.5l3.5,-1.5z" />
+</vector>
