@@ -28,10 +28,11 @@ class FindDuplicatesUseCase(private val dao: FileDao, private val hasher: FileHa
 
     suspend operator fun invoke(
         minSize: Long = 1,
+        include: (FileItem) -> Boolean = { true },
         onProgress: (processed: Int, total: Int) -> Unit = { _, _ -> },
     ): List<DuplicateGroup> = withContext(Dispatchers.IO) {
         // El mismo archivo puede estar indexado por MediaStore y por SAF: se cuenta una sola vez.
-        val candidates = dao.sizeCollisions(minSize).distinctBy { it.path.ifEmpty { it.uri } }
+        val candidates = dao.sizeCollisions(minSize).filter(include).distinctBy { it.path.ifEmpty { it.uri } }
         val bySize = candidates.groupBy { it.size }.values.filter { it.size > 1 }
         val total = bySize.sumOf { it.size }
         var processed = 0

@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -72,6 +73,7 @@ fun DashboardScreen(
     onOpenStale: () -> Unit,
     onOpenResidual: () -> Unit,
     onOpenApps: () -> Unit,
+    onOpenSmart: () -> Unit,
     onOpenLargest: () -> Unit,
     onOpenCategory: (FileCategory) -> Unit,
 ) {
@@ -87,6 +89,31 @@ fun DashboardScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             item { StorageCard(storage) }
+
+            item {
+                Card(
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable(onClick = onOpenSmart),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                    ),
+                ) {
+                    Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Filled.Star, contentDescription = null)
+                        Spacer(Modifier.width(14.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text("Limpieza inteligente", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            Text(
+                                "Sugerencias con 1 toque: APKs, descargas viejas, temporales, copias y caché. Fotos y videos protegidos.",
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                        Icon(Icons.Filled.KeyboardArrowRight, contentDescription = null)
+                    }
+                }
+            }
 
             if (!hasMediaPermission) {
                 item {

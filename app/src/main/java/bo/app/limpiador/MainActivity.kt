@@ -35,14 +35,17 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import bo.app.limpiador.ui.AppsViewModel
 import bo.app.limpiador.ui.CleanUpViewModel
+import bo.app.limpiador.ui.SmartCleanViewModel
+import bo.app.limpiador.ui.SmartEvent
 import bo.app.limpiador.ui.StaleFilter
 import bo.app.limpiador.ui.UiEvent
 import bo.app.limpiador.ui.screens.AppsScreen
 import bo.app.limpiador.ui.screens.DashboardScreen
 import bo.app.limpiador.ui.screens.DuplicateCleanerScreen
+import bo.app.limpiador.ui.screens.SmartCleanDashboardScreen
 import bo.app.limpiador.ui.screens.StaleFilesScreen
 
-private enum class Screen { Dashboard, Duplicates, Stale, Apps }
+private enum class Screen { Dashboard, Duplicates, Stale, Apps, Smart }
 
 private val Colors = lightColorScheme(
     primary = Color(0xFF1B7F5A),
@@ -116,7 +119,11 @@ private fun uninstallIntent(pkg: String): Intent =
         .putExtra(Intent.EXTRA_RETURN_RESULT, true)
 
 @Composable
-private fun App(vm: CleanUpViewModel = viewModel(), appsVm: AppsViewModel = viewModel()) {
+private fun App(
+    vm: CleanUpViewModel = viewModel(),
+    appsVm: AppsViewModel = viewModel(),
+    smartVm: SmartCleanViewModel = viewModel(),
+) {
     val context = LocalContext.current
     val snackbar = remember { SnackbarHostState() }
     var screen by remember { mutableStateOf(Screen.Dashboard) }
@@ -138,6 +145,14 @@ private fun App(vm: CleanUpViewModel = viewModel(), appsVm: AppsViewModel = view
     val usageAccess by appsVm.usageAccess.collectAsStateWithLifecycle()
     val appsSelection by appsVm.selection.collectAsStateWithLifecycle()
     val appsSummary by appsVm.summary.collectAsStateWithLifecycle()
+    val smart by smartVm.state.collectAsStateWithLifecycle()
+
+    val smartConsentLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { r ->
+        smartVm.onConsentResult(r.resultCode == Activity.RESULT_OK)
+    }
+    val clearCacheLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { r ->
+        smartVm.onAppCacheCleared(r.resultCode == Activity.RESULT_OK)
+    }
 
     // Desinstalación en cadena: el sistema confirma cada app, al volver se lanza la siguiente.
     var uninstallQueue by remember { mutableStateOf(emptyList<String>()) }
@@ -177,6 +192,26 @@ private fun App(vm: CleanUpViewModel = viewModel(), appsVm: AppsViewModel = view
         hasPermission = hasMediaPermission(context)
         vm.refreshEnvironment()
         appsVm.onResume()
+        smartVm.refreshEnvironment()
+    }
+
+    LaunchedEffect(Unit) {
+        smartVm.uiEvents.collect { e ->
+            when (e) {
+                is SmartEvent.Message -> snackbar.showSnackbar(e.text)
+                is SmartEvent.Consent -> smartConsentLauncher.launch(IntentSenderRequest.Builder(e.intentSender).build())
+                SmartEvent.RequestDeepAccess -> openAllFilesSettings(context)
+                SmartEvent.ClearAppCache -> {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                        try {
+                            clearCacheLauncher.launch(Intent(android.os.storage.StorageManager.ACTION_CLEAR_APP_CACHE))
+                        } catch (ex: Exception) {
+                            snackbar.showSnackbar("Este teléfono no permite vaciar la caché desde otra app")
+                        }
+                    }
+                }
+            }
+        }
     }
 
     LaunchedEffect(Unit) {
@@ -217,6 +252,10 @@ private fun App(vm: CleanUpViewModel = viewModel(), appsVm: AppsViewModel = view
                 screen = Screen.Stale
             },
             onOpenApps = { screen = Screen.Apps },
+            onOpenSmart = {
+                screen = Screen.Smart
+                if (smart.scanner is bo.app.limpiador.ui.state.SmartScannerStatus.Idle) smartVm.scan()
+            },
             onOpenLargest = {
                 vm.setStaleFilter(StaleFilter(days = 0))
                 screen = Screen.Stale
@@ -251,6 +290,22 @@ private fun App(vm: CleanUpViewModel = viewModel(), appsVm: AppsViewModel = view
             onToggle = vm::toggleStale,
             onSelectAll = vm::selectAllStale,
             onDelete = vm::deleteSelectedStale,
+        )
+
+        Screen.Smart -> SmartCleanDashboardScreen(
+            state = smart,
+            snackbar = snackbar,
+            onBack = { screen = Screen.Dashboard },
+            onScan = smartVm::scan,
+            onCancelScan = smartVm::cancelScan,
+            onSafeClean = smartVm::safeClean,
+            onToggleEnabled = smartVm::toggleEnabled,
+            onToggleExpanded = smartVm::toggleExpanded,
+            onToggleFile = smartVm::toggleFile,
+            onSelectAll = smartVm::selectAll,
+            onCleanCategory = smartVm::cleanCategory,
+            onRequestDeepAccess = { openAllFilesSettings(context) },
+            onRequestUsageAccess = { openUsageAccessSettings(context) },
         )
 
         Screen.Apps -> AppsScreen(

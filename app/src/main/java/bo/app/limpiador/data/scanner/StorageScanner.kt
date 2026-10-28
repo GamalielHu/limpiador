@@ -173,16 +173,7 @@ class StorageScanner(context: Context, private val dao: FileDao) {
         dao.purgeOlderThan(stamp, treeUri.toString())
     }.flowOn(Dispatchers.IO)
 
-    private suspend fun saveKeepingHashes(batch: List<FileItem>) {
-        if (batch.isEmpty()) return
-        val previous = dao.getByUris(batch.map { it.uri }).associateBy { it.uri }
-        dao.upsertAll(batch.map { item ->
-            val old = previous[item.uri]
-            if (old != null && old.size == item.size && old.lastModified == item.lastModified) {
-                item.copy(preHash = old.preHash, checksum = old.checksum)
-            } else item
-        })
-    }
+    private suspend fun saveKeepingHashes(batch: List<FileItem>) = dao.upsertKeepingHashes(batch)
 
     private fun collectionFor(mediaType: Int): Uri = when (mediaType) {
         MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE -> MediaStore.Images.Media.EXTERNAL_CONTENT_URI
@@ -209,4 +200,16 @@ class StorageScanner(context: Context, private val dao: FileDao) {
             else -> rel
         }
     }
+}
+
+/** Guarda el lote conservando pre-hash y checksum de los archivos que no cambiaron. */
+internal suspend fun FileDao.upsertKeepingHashes(batch: List<FileItem>) {
+    if (batch.isEmpty()) return
+    val previous = getByUris(batch.map { it.uri }).associateBy { it.uri }
+    upsertAll(batch.map { item ->
+        val old = previous[item.uri]
+        if (old != null && old.size == item.size && old.lastModified == item.lastModified) {
+            item.copy(preHash = old.preHash, checksum = old.checksum)
+        } else item
+    })
 }

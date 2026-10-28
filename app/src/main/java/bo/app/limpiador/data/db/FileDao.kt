@@ -67,4 +67,15 @@ interface FileDao {
     /** Purga lo que no apareció en el último escaneo de esa fuente. */
     @Query("DELETE FROM files WHERE scanStamp < :stamp AND uri LIKE :uriPrefix || '%'")
     suspend fun purgeOlderThan(stamp: Long, uriPrefix: String)
+
+    /** Todo lo que no es foto ni video: el único universo que la limpieza inteligente evalúa. */
+    @Query("SELECT * FROM files WHERE category NOT IN ('IMAGES', 'VIDEOS')")
+    suspend fun nonVisualFiles(): List<FileItem>
+
+    /** Purga del escaneo selectivo: solo toca entradas no visuales de MediaStore. */
+    @Query(
+        """DELETE FROM files WHERE scanStamp < :stamp AND uri LIKE 'content://media/%'
+           AND category NOT IN ('IMAGES', 'VIDEOS')"""
+    )
+    suspend fun purgeNonVisualOlderThan(stamp: Long)
 }
